@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-vgo/robotgo"
-
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-vgo/robotgo"
 )
 
 type BuildError struct {
@@ -56,6 +55,7 @@ func main() {
 			panic(err)
 		}
 	}
+	log.Println(pos)
 	go func() {
 		for _ = range w.Events {
 			log.Println("Got event")
@@ -84,12 +84,12 @@ func main() {
 	for _ = range move {
 		log.Println("Updating build errors")
 		errs = GetListOfErrors()
-		time.Sleep(10 * time.Millisecond)
 		if len(errs) == 0 {
 			if *closeOnNoError {
 				return
 			}
 			time.Sleep(time.Second * 5)
+			continue
 		}
 		if len(errs) > 0 && errs[0].Location() != currentLocation.Location() {
 			w.Remove(currentLocation.File)
@@ -107,6 +107,7 @@ func main() {
 
 func GetListOfErrors() []BuildError {
 	out, err := exec.Command(`go`, "build").CombinedOutput()
+	log.Println(string(out))
 	if err == nil {
 		return nil
 	}
@@ -115,6 +116,9 @@ func GetListOfErrors() []BuildError {
 	for {
 		l, _, err := r.ReadLine()
 		if err == io.EOF {
+			if len(errs) > 0 {
+				log.Println(errs[0].Location)
+			}
 			return errs
 		}
 		if err != nil {
