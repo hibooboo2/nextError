@@ -54,6 +54,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	} else {
+		if *closeOnNoError {
+			return
+		}
 	}
 	log.Println(pos)
 	go func() {
