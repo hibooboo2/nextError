@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-vgo/robotgo"
+
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -30,6 +32,7 @@ func (e BuildError) Location() string {
 }
 
 func main() {
+	closeOnNoError := flag.Bool("e", false, "close when no errors")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	flag.Parse()
 	if !*shouldLog {
@@ -42,11 +45,16 @@ func main() {
 	}
 	move := make(chan struct{}, 2)
 	errs := GetListOfErrors()
-	currentLocation := errs[0]
-	currentLocation.Open()
-	err = w.Add(currentLocation.File)
-	if err != nil {
-		panic(err)
+	var currentLocation BuildError
+	pos := 0
+	if len(errs) > 0 {
+		currentLocation = errs[0]
+		pos = 0
+		currentLocation.Open()
+		err = w.Add(currentLocation.File)
+		if err != nil {
+			panic(err)
+		}
 	}
 	go func() {
 		for _ = range w.Events {
@@ -54,16 +62,39 @@ func main() {
 			move <- struct{}{}
 		}
 	}()
+	evts := robotgo.Start()
+	defer robotgo.End()
+	go func() {
+		log.Println("Starting event loop")
+		for e := range evts {
+			switch {
+			case e.Keychar == 65535 && e.Mask == 40964:
+				pos++
+				if pos > len(errs) {
+					pos = 0
+				}
+				if pos < len(errs)-1 {
+					errs[pos].Open()
+				}
+			default:
+				log.Println(string(e.Keychar), e.Mask)
+			}
+		}
+	}()
 	for _ = range move {
 		log.Println("Updating build errors")
 		errs = GetListOfErrors()
 		time.Sleep(10 * time.Millisecond)
 		if len(errs) == 0 {
-			break
+			if *closeOnNoError {
+				return
+			}
+			time.Sleep(time.Second * 5)
 		}
-		if errs[0].Location() != currentLocation.Location() {
+		if len(errs) > 0 && errs[0].Location() != currentLocation.Location() {
 			w.Remove(currentLocation.File)
 			currentLocation = errs[0]
+			pos = 0
 			currentLocation.Open()
 			err := w.Add(currentLocation.File)
 			if err != nil {
