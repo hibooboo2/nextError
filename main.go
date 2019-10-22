@@ -124,7 +124,7 @@ func GetListOfErrors() []BuildError {
 		if err != nil {
 			panic(err)
 		}
-		vals := strings.Split(string(l), ":")
+		vals := strings.SplitN(string(l), ":", 4)
 		if len(vals) != 4 {
 			continue
 		}
