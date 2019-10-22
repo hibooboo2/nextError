@@ -110,7 +110,7 @@ func main() {
 }
 
 func GetListOfErrors() []BuildError {
-	out, err := exec.Command(`go`, "build").CombinedOutput()
+	out, err := exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
 	log.Println(string(out))
 	if err == nil {
 		return nil
