@@ -32,6 +32,7 @@ func (e BuildError) Location() string {
 
 func main() {
 	closeOnNoError := flag.Bool("e", false, "close when no errors")
+	useShortCuts := flag.Bool("h", false, "hotkey for next error")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	flag.Parse()
 	if !*shouldLog {
@@ -43,11 +44,13 @@ func main() {
 		panic(err)
 	}
 	move := make(chan struct{}, 2)
-	errs := GetListOfErrors()
+	var errs *[]BuildError
+
+	*errs = GetListOfErrors()
 	var currentLocation BuildError
 	pos := 0
-	if len(errs) > 0 {
-		currentLocation = errs[0]
+	if len(*errs) > 0 {
+		currentLocation = (*errs)[0]
 		pos = 0
 		currentLocation.Open()
 		err = w.Add(currentLocation.File)
@@ -66,38 +69,24 @@ func main() {
 			move <- struct{}{}
 		}
 	}()
-	evts := robotgo.Start()
-	defer robotgo.End()
-	go func() {
-		log.Println("Starting event loop")
-		for e := range evts {
-			switch {
-			case e.Keychar == 65535 && e.Mask == 40964:
-				pos++
-				if pos > len(errs) {
-					pos = 0
-				}
-				if pos < len(errs)-1 {
-					errs[pos].Open()
-				}
-			default:
-				log.Println(string(e.Keychar), e.Mask)
-			}
-		}
-	}()
+	if *useShortCuts {
+		defer robotgo.End()
+	}
+	go shortCuts(errs, pos)
+
 	for _ = range move {
 		log.Println("Updating build errors")
-		errs = GetListOfErrors()
-		if len(errs) == 0 {
+		*errs = GetListOfErrors()
+		if len(*errs) == 0 {
 			if *closeOnNoError {
 				return
 			}
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		if len(errs) > 0 && errs[0].Location() != currentLocation.Location() {
+		if len(*errs) > 0 && (*errs)[0].Location() != currentLocation.Location() {
 			w.Remove(currentLocation.File)
-			currentLocation = errs[0]
+			currentLocation = (*errs)[0]
 			pos = 0
 			currentLocation.Open()
 			err := w.Add(currentLocation.File)
@@ -138,5 +127,24 @@ func GetListOfErrors() []BuildError {
 			Col:   vals[2],
 			Error: vals[3],
 		})
+	}
+}
+
+func shortCuts(errs *[]BuildError, pos int) {
+	evts := robotgo.Start()
+	log.Println("Starting event loop")
+	for e := range evts {
+		switch {
+		case e.Keychar == 65535 && e.Mask == 40964:
+			pos++
+			if pos > len(*errs) {
+				pos = 0
+			}
+			if pos < len(*errs)-1 {
+				(*errs)[pos].Open()
+			}
+		default:
+			log.Println(string(e.Keychar), e.Mask)
+		}
 	}
 }
