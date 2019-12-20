@@ -46,7 +46,8 @@ func main() {
 	move := make(chan struct{}, 2)
 	var errs *[]BuildError
 
-	*errs = GetListOfErrors()
+	es := GetListOfErrors()
+	errs = &es
 	var currentLocation BuildError
 	pos := 0
 	if len(*errs) > 0 {
@@ -70,9 +71,9 @@ func main() {
 		}
 	}()
 	if *useShortCuts {
+		go shortCuts(errs, pos)
 		defer robotgo.End()
 	}
-	go shortCuts(errs, pos)
 
 	for _ = range move {
 		log.Println("Updating build errors")
@@ -102,7 +103,7 @@ func GetListOfErrors() []BuildError {
 	out, err := exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
 	log.Println(string(out))
 	if err == nil {
-		return nil
+		return []BuildError{}
 	}
 	r := bufio.NewReader(bytes.NewReader(out))
 	errs := []BuildError{}
