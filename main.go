@@ -65,7 +65,7 @@ func main() {
 	}
 	log.Println(pos)
 	go func() {
-		for _ = range w.Events {
+		for range w.Events {
 			log.Println("Got event")
 			move <- struct{}{}
 		}
@@ -75,7 +75,7 @@ func main() {
 		defer robotgo.End()
 	}
 
-	for _ = range move {
+	for range move {
 		log.Println("Updating build errors")
 		*errs = GetListOfErrors()
 		if len(*errs) == 0 {
