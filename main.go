@@ -44,14 +44,13 @@ func main() {
 		panic(err)
 	}
 	move := make(chan struct{}, 2)
-	var errs *[]BuildError
 
-	es := GetListOfErrors()
-	errs = &es
-	var currentLocation BuildError
+	errs := GetListOfErrors()
+
+	var currentLocation *BuildError
 	pos := 0
-	if len(*errs) > 0 {
-		currentLocation = (*errs)[0]
+	if len(errs) > 0 {
+		currentLocation = errs[0]
 		pos = 0
 		currentLocation.Open()
 		err = w.Add(currentLocation.File)
@@ -77,17 +76,17 @@ func main() {
 
 	for range move {
 		log.Println("Updating build errors")
-		*errs = GetListOfErrors()
-		if len(*errs) == 0 {
+		errs = GetListOfErrors()
+		if len(errs) == 0 {
 			if *closeOnNoError {
 				return
 			}
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		if len(*errs) > 0 && (*errs)[0].Location() != currentLocation.Location() {
+		if len(errs) > 0 && errs[0].Location() != currentLocation.Location() {
 			w.Remove(currentLocation.File)
-			currentLocation = (*errs)[0]
+			currentLocation = errs[0]
 			pos = 0
 			currentLocation.Open()
 			err := w.Add(currentLocation.File)
@@ -99,14 +98,14 @@ func main() {
 	}
 }
 
-func GetListOfErrors() []BuildError {
+func GetListOfErrors() []*BuildError {
 	out, err := exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
 	log.Println(string(out))
 	if err == nil {
-		return []BuildError{}
+		return nil
 	}
 	r := bufio.NewReader(bytes.NewReader(out))
-	errs := []BuildError{}
+	errs := []*BuildError{}
 	for {
 		l, _, err := r.ReadLine()
 		if err == io.EOF {
@@ -122,7 +121,7 @@ func GetListOfErrors() []BuildError {
 		if len(vals) != 4 {
 			continue
 		}
-		errs = append(errs, BuildError{
+		errs = append(errs, &BuildError{
 			File:  vals[0],
 			Line:  vals[1],
 			Col:   vals[2],
@@ -131,18 +130,18 @@ func GetListOfErrors() []BuildError {
 	}
 }
 
-func shortCuts(errs *[]BuildError, pos int) {
+func shortCuts(errs []*BuildError, pos int) {
 	evts := robotgo.Start()
 	log.Println("Starting event loop")
 	for e := range evts {
 		switch {
 		case e.Keychar == 65535 && e.Mask == 40964:
 			pos++
-			if pos > len(*errs) {
+			if pos > len(errs) {
 				pos = 0
 			}
-			if pos < len(*errs)-1 {
-				(*errs)[pos].Open()
+			if pos < len(errs)-1 {
+				errs[pos].Open()
 			}
 		default:
 			log.Println(string(e.Keychar), e.Mask)
