@@ -37,6 +37,7 @@ func main() {
 	useShortCuts := flag.Bool("h", false, "hotkey for next error")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
+	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test)")
 
 	flag.Parse()
 	if !*shouldLog {
@@ -51,11 +52,12 @@ func main() {
 
 	move := make(chan struct{}, 2)
 
-	errs := GetListOfErrors()
+	errs := GetListOfErrors(*buildCmd)
 	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError)
 
 	for currentLocation == nil {
-		errs = GetListOfErrors()
+		time.Sleep(time.Millisecond * 100)
+		errs = GetListOfErrors(*buildCmd)
 		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError)
 	}
 
@@ -74,7 +76,7 @@ func main() {
 
 	for range move {
 		log.Println("Updating build errors")
-		errs = GetListOfErrors()
+		errs = GetListOfErrors(*buildCmd)
 		if len(errs) == 0 {
 			if *closeOnNoError {
 				return
@@ -117,8 +119,18 @@ func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool)
 	return nil, 0
 }
 
-func GetListOfErrors() []*BuildError {
-	out, err := exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
+func GetListOfErrors(buildCmd string) []*BuildError {
+	var out []byte
+	var err error
+
+	switch buildCmd {
+	case "test":
+		out, err = exec.Command(`go`, "test", "./...").CombinedOutput()
+	case "build":
+		out, err = exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
+	default:
+		return nil
+	}
 	log.Println(string(out))
 	if err == nil {
 		return nil
@@ -129,7 +141,7 @@ func GetListOfErrors() []*BuildError {
 		l, _, err := r.ReadLine()
 		if err == io.EOF {
 			if len(errs) > 0 {
-				log.Println(errs[0].Location)
+				log.Println(errs[0].Location())
 			}
 			return errs
 		}
