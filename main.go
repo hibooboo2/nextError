@@ -24,8 +24,15 @@ type BuildError struct {
 	Col   string
 }
 
-func (e BuildError) Open() {
-	exec.Command("code", "-g", e.Location()).Run()
+func (e BuildError) Open(ide string) {
+	switch ide {
+	case "goland":
+		exec.Command("goland", "--line", e.Line, e.File).Run()
+	case "vscode":
+		exec.Command("code", "-g", e.Location()).Run()
+	default:
+		panic(fmt.Sprintf("invalid ide %q", ide))
+	}
 }
 
 func (e BuildError) Location() string {
@@ -38,6 +45,7 @@ func main() {
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
 	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test)")
+	ide := flag.String("ide", "vscode", "choose which ide to use (vscode|goland)")
 
 	flag.Parse()
 	if !*shouldLog {
@@ -53,12 +61,12 @@ func main() {
 	move := make(chan struct{}, 2)
 
 	errs := GetListOfErrors(*buildCmd)
-	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError)
+	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError, *ide)
 
 	for currentLocation == nil {
 		time.Sleep(time.Millisecond * 100)
 		errs = GetListOfErrors(*buildCmd)
-		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError)
+		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError, *ide)
 	}
 
 	log.Println(pos)
@@ -70,7 +78,7 @@ func main() {
 	}()
 
 	if *useShortCuts {
-		go shortCuts(errs, pos)
+		go shortCuts(errs, pos, *ide)
 		defer robotgo.End()
 	}
 
@@ -91,7 +99,7 @@ func main() {
 			w.Remove(currentLocation.File)
 			currentLocation = errs[0]
 			pos = 0
-			currentLocation.Open()
+			currentLocation.Open(*ide)
 			err := w.Add(currentLocation.File)
 			if err != nil {
 				panic(err)
@@ -101,11 +109,11 @@ func main() {
 	}
 }
 
-func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool) (*BuildError, int) {
+func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool, ide string) (*BuildError, int) {
 	if len(errs) > 0 {
 		currentLocation := errs[0]
 		pos := 0
-		currentLocation.Open()
+		currentLocation.Open(ide)
 		err := w.Add(currentLocation.File)
 		if err != nil {
 			panic(err)
@@ -161,7 +169,7 @@ func GetListOfErrors(buildCmd string) []*BuildError {
 	}
 }
 
-func shortCuts(errs []*BuildError, pos int) {
+func shortCuts(errs []*BuildError, pos int, ide string) {
 	evts := robotgo.Start()
 	log.Println("Starting event loop")
 	for e := range evts {
@@ -172,7 +180,7 @@ func shortCuts(errs []*BuildError, pos int) {
 				pos = 0
 			}
 			if pos < len(errs)-1 {
-				errs[pos].Open()
+				errs[pos].Open(ide)
 			}
 		default:
 			log.Println(string(e.Keychar), e.Mask)
