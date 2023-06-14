@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-vgo/robotgo"
 )
 
 type BuildError struct {
@@ -34,7 +33,7 @@ func (e BuildError) Location() string {
 
 func main() {
 	closeOnNoError := flag.Bool("e", false, "close when no errors")
-	useShortCuts := flag.Bool("h", false, "hotkey for next error")
+	// useShortCuts := flag.Bool("h", false, "hotkey for next error")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
 	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test)")
@@ -69,10 +68,10 @@ func main() {
 		}
 	}()
 
-	if *useShortCuts {
-		go shortCuts(errs, pos)
-		defer robotgo.End()
-	}
+	// if *useShortCuts {
+	// 	go shortCuts(errs, pos)
+	// 	defer robotgo.End()
+	// }
 
 	for range move {
 		log.Println("Updating build errors")
@@ -81,6 +80,7 @@ func main() {
 			if *closeOnNoError {
 				return
 			}
+			fmt.Fprintf(os.Stdout, "Hello\r")
 			time.Sleep(time.Second * 5)
 			continue
 		}
@@ -162,21 +162,21 @@ func GetListOfErrors(buildCmd string) []*BuildError {
 	}
 }
 
-func shortCuts(errs []*BuildError, pos int) {
-	evts := robotgo.Start()
-	log.Println("Starting event loop")
-	for e := range evts {
-		switch {
-		case e.Keychar == 65535 && e.Mask == 40964:
-			pos++
-			if pos > len(errs) {
-				pos = 0
-			}
-			if pos < len(errs)-1 {
-				errs[pos].Open()
-			}
-		default:
-			log.Println(string(e.Keychar), e.Mask)
-		}
-	}
-}
+// func shortCuts(errs []*BuildError, pos int) {
+// 	evts := robotgo.Start()
+// 	log.Println("Starting event loop")
+// 	for e := range evts {
+// 		switch {
+// 		case e.Keychar == 65535 && e.Mask == 40964:
+// 			pos++
+// 			if pos > len(errs) {
+// 				pos = 0
+// 			}
+// 			if pos < len(errs)-1 {
+// 				errs[pos].Open()
+// 			}
+// 		default:
+// 			log.Println(string(e.Keychar), e.Mask)
+// 		}
+// 	}
+// }
