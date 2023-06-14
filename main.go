@@ -108,6 +108,7 @@ func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool)
 		currentLocation.Open()
 		err := w.Add(currentLocation.File)
 		if err != nil {
+			fmt.Println(currentLocation.File)
 			panic(err)
 		}
 		return currentLocation, pos
@@ -125,7 +126,7 @@ func GetListOfErrors(buildCmd string) []*BuildError {
 
 	switch buildCmd {
 	case "test":
-		out, err = exec.Command(`go`, "test", "./...").CombinedOutput()
+		out, err = exec.Command(`go`, "test", "-exec", "/bin/true", "./...").CombinedOutput()
 	case "build":
 		out, err = exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
 	default:
