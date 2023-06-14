@@ -55,6 +55,7 @@ func main() {
 	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError)
 
 	for currentLocation == nil {
+		fmt.Printf("\t✅\r")
 		time.Sleep(time.Millisecond * 100)
 		errs = GetListOfErrors(*buildCmd)
 		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError)
@@ -73,17 +74,24 @@ func main() {
 	// 	defer robotgo.End()
 	// }
 
-	for range move {
-		log.Println("Updating build errors")
+	ticker := time.NewTicker(time.Second * 5)
+	for {
+		select {
+		case <-move:
+			log.Println("Moving to next error")
+		case <-ticker.C:
+			log.Println("Tick")
+		}
+
 		errs = GetListOfErrors(*buildCmd)
 		if len(errs) == 0 {
 			if *closeOnNoError {
 				return
 			}
-			fmt.Fprintf(os.Stdout, "Hello\r")
-			time.Sleep(time.Second * 5)
+			fmt.Printf("\t✅\r")
 			continue
 		}
+		fmt.Printf("\t🔥\r")
 		if len(errs) > 0 && errs[0].Location() != currentLocation.Location() {
 			if *shouldLogOnErrorFix {
 				fmt.Println("Fixed Error:", currentLocation.Location())
