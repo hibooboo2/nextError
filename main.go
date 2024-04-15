@@ -91,7 +91,7 @@ func main() {
 			continue
 		}
 		fmt.Printf("\t🔥\r")
-		if len(errs) > 0 && errs[0].Location() != currentLocation.Location() {
+		if len(errs) > 0 && !currentErrorInErrors(currentLocation, errs) {
 			if *shouldLogOnErrorFix {
 				fmt.Println("Fixed Error:", currentLocation.Location())
 			}
@@ -108,6 +108,14 @@ func main() {
 	}
 }
 
+func currentErrorInErrors(currentLocation *BuildError, errs []*BuildError) bool {
+	for _, e := range errs {
+		if e.Location() == currentLocation.Location() {
+			return true
+		}
+	}
+	return false
+}
 func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool) (*BuildError, int) {
 	if len(errs) > 0 {
 		currentLocation := errs[0]
