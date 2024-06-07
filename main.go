@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ func main() {
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
 	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test)")
+	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
 
 	flag.Parse()
 	if !*shouldLog {
@@ -50,13 +52,13 @@ func main() {
 
 	move := make(chan struct{}, 2)
 
-	errs := GetListOfErrors(*buildCmd)
+	errs := GetListOfErrors(*buildCmd, *containsFiles)
 	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError)
 
 	for currentLocation == nil {
 		fmt.Printf("\t✅\r")
 		time.Sleep(time.Millisecond * 100)
-		errs = GetListOfErrors(*buildCmd)
+		errs = GetListOfErrors(*buildCmd, *containsFiles)
 		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError)
 	}
 
@@ -82,7 +84,7 @@ func main() {
 			log.Println("Tick")
 		}
 
-		errs = GetListOfErrors(*buildCmd)
+		errs = GetListOfErrors(*buildCmd, *containsFiles)
 		if len(errs) == 0 {
 			if *closeOnNoError {
 				return
@@ -135,24 +137,94 @@ func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool)
 	return nil, 0
 }
 
-func GetListOfErrors(buildCmd string) []*BuildError {
+func GetXXXErrors(contains string) []*BuildError {
+	errs, err := findLinesContaining(".", contains, []string{".go"})
+	if err != nil {
+		log.Printf("Failed to find lines:  %v", err)
+	}
+	return errs
+}
+
+func findLinesContaining(directory string, prefix string, extensions []string) ([]*BuildError, error) {
+	var result []*BuildError
+
+	// Walk through the directory
+	err := filepath.WalkDir(directory, func(path string, info os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// If it's a file (not a directory), process it
+		if !info.IsDir() {
+			found := false
+			for _, ext := range extensions {
+				if strings.HasSuffix(path, ext) {
+					found = true
+				}
+				if !found {
+					return nil
+				}
+			}
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			lineNumber := 0
+			for scanner.Scan() {
+				lineNumber++
+				line := scanner.Text()
+				if strings.Contains(line, prefix) {
+					be := &BuildError{
+						File:  path,
+						Line:  fmt.Sprintf("%d", lineNumber),
+						Error: line,
+						Col:   fmt.Sprintf("%d", strings.Index(line, prefix)),
+					}
+					result = append(result, be)
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				log.Printf("failed to scan file: %q %v", path, err)
+				return nil
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 	var out []byte
 	var err error
+	errs := GetXXXErrors(contains)
 
 	switch buildCmd {
 	case "test":
 		out, err = exec.Command(`go`, "test", "-exec", "/bin/true", "./...").CombinedOutput()
 	case "build":
 		out, err = exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
+	case "notes":
+		return errs
 	default:
 		return nil
 	}
 	log.Println(string(out))
 	if err == nil {
-		return nil
+		return errs
 	}
 	r := bufio.NewReader(bytes.NewReader(out))
-	errs := []*BuildError{}
 	for {
 		l, _, err := r.ReadLine()
 		if err == io.EOF {
@@ -168,12 +240,14 @@ func GetListOfErrors(buildCmd string) []*BuildError {
 		if len(vals) != 4 {
 			continue
 		}
-		errs = append(errs, &BuildError{
-			File:  vals[0],
-			Line:  vals[1],
-			Col:   vals[2],
-			Error: vals[3],
-		})
+		errs = append([]*BuildError{
+			{
+				File:  vals[0],
+				Line:  vals[1],
+				Col:   vals[2],
+				Error: vals[3],
+			},
+		}, errs...)
 	}
 }
 
