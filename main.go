@@ -92,7 +92,8 @@ func main() {
 			fmt.Printf("\t✅\r")
 			continue
 		}
-		fmt.Printf("\t🔥\r")
+		log.Println(errs)
+		fmt.Printf("\t🔥\t%d\r", len(errs))
 		if len(errs) > 0 && !currentErrorInErrors(currentLocation, errs) {
 			if *shouldLogOnErrorFix {
 				fmt.Println("Fixed Error:", currentLocation.Location())
