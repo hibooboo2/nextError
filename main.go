@@ -237,18 +237,27 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 		if err != nil {
 			panic(err)
 		}
-		vals := strings.SplitN(string(l), ":", 4)
-		if len(vals) != 4 {
-			continue
+		vals := strings.Split(string(l), ":")
+		switch len(vals) {
+		case 3:
+			if strings.Contains(vals[0], "Error Trace") {
+				errs = append([]*BuildError{
+					{
+						File: strings.TrimSpace(vals[1]),
+						Line: strings.TrimSpace(vals[2]),
+					},
+				}, errs...)
+			}
+		case 4:
+			errs = append([]*BuildError{
+				{
+					File:  vals[0],
+					Line:  vals[1],
+					Col:   vals[2],
+					Error: vals[3],
+				},
+			}, errs...)
 		}
-		errs = append([]*BuildError{
-			{
-				File:  vals[0],
-				Line:  vals[1],
-				Col:   vals[2],
-				Error: vals[3],
-			},
-		}, errs...)
 	}
 }
 
