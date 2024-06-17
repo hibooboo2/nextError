@@ -36,7 +36,7 @@ func main() {
 	// useShortCuts := flag.Bool("h", false, "hotkey for next error")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
-	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test)")
+	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test|notes)")
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
 
 	flag.Parse()
