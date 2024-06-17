@@ -36,7 +36,7 @@ func main() {
 	// useShortCuts := flag.Bool("h", false, "hotkey for next error")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
-	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test)")
+	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test)")
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
 
 	flag.Parse()
@@ -212,6 +212,8 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 	errs := GetXXXErrors(contains)
 
 	switch buildCmd {
+	case "run-test":
+		out, err = exec.Command(`go`, "test", "-count=1", "./...").CombinedOutput()
 	case "test":
 		out, err = exec.Command(`go`, "test", "-exec", "/bin/true", "./...").CombinedOutput()
 	case "build":
@@ -237,7 +239,7 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 		if err != nil {
 			panic(err)
 		}
-		vals := strings.Split(string(l), ":")
+		vals := strings.SplitN(string(l), ":", 4)
 		switch len(vals) {
 		case 3:
 			if strings.Contains(vals[0], "Error Trace") {
