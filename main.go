@@ -24,6 +24,12 @@ type BuildError struct {
 }
 
 func (e BuildError) Open() {
+	loc := e.File
+	_, err := os.Open(loc)
+	if os.IsNotExist(err) {
+		log.Printf("failed to open location as it was some how not a valid file: %s", loc)
+		return
+	}
 	exec.Command("code", "-g", e.Location()).Run()
 }
 
@@ -92,8 +98,10 @@ func main() {
 			fmt.Printf("\t✅\r")
 			continue
 		}
+
 		log.Println(errs)
 		fmt.Printf("\t🔥\t%d\r", len(errs))
+
 		if len(errs) > 0 && !currentErrorInErrors(currentLocation, errs) {
 			if *shouldLogOnErrorFix {
 				fmt.Println("Fixed Error:", currentLocation.Location())
@@ -104,9 +112,8 @@ func main() {
 			currentLocation.Open()
 			err := w.Add(currentLocation.File)
 			if err != nil {
-				panic(err)
+				log.Printf("failed to add file watch for: %s", currentLocation.File)
 			}
-
 		}
 	}
 }
@@ -126,8 +133,8 @@ func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool)
 		currentLocation.Open()
 		err := w.Add(currentLocation.File)
 		if err != nil {
-			fmt.Println(currentLocation.File)
-			panic(err)
+			fmt.Println(currentLocation.File, err)
+			return currentLocation, pos
 		}
 		return currentLocation, pos
 	} else {
