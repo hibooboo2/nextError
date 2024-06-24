@@ -228,7 +228,8 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 	case "notes":
 		return errs
 	default:
-		return nil
+		flag.PrintDefaults()
+		os.Exit(23)
 	}
 	log.Println(string(out))
 	if err == nil {
