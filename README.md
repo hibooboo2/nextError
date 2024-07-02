@@ -3,11 +3,11 @@ Deps:
 Installed go 
 Installed vscode for go
 
-##To Install Run
+# To Install Run
 
 go install github.com/hibooboo2/nextError@latest
 
-##To Use
+# To Use
 
 Run 
 ```bash
