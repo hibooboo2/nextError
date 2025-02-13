@@ -23,14 +23,14 @@ type BuildError struct {
 	Col   string
 }
 
-func (e BuildError) Open() {
+func (e BuildError) Open(editor string) {
 	loc := e.File
 	_, err := os.Open(loc)
 	if os.IsNotExist(err) {
 		log.Printf("failed to open location as it was some how not a valid file: %s", loc)
 		return
 	}
-	exec.Command("code", "-g", e.Location()).Run()
+	exec.Command(editor, "-g", e.Location()).Run()
 }
 
 func (e BuildError) Location() string {
@@ -44,6 +44,7 @@ func main() {
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
 	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test|notes)")
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
+	editor := flag.String("editor", "code", "Editor to use")
 
 	flag.Parse()
 	if !*shouldLog {
@@ -59,13 +60,13 @@ func main() {
 	move := make(chan struct{}, 2)
 
 	errs := GetListOfErrors(*buildCmd, *containsFiles)
-	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError)
+	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError, *editor)
 
 	for currentLocation == nil {
 		fmt.Printf("\t✅\r")
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Second * 3)
 		errs = GetListOfErrors(*buildCmd, *containsFiles)
-		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError)
+		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError, *editor)
 	}
 
 	log.Println(pos)
@@ -109,7 +110,7 @@ func main() {
 			w.Remove(currentLocation.File)
 			currentLocation = errs[0]
 			pos = 0
-			currentLocation.Open()
+			currentLocation.Open(*editor)
 			err := w.Add(currentLocation.File)
 			if err != nil {
 				log.Printf("failed to add file watch for: %s", currentLocation.File)
@@ -126,11 +127,11 @@ func currentErrorInErrors(currentLocation *BuildError, errs []*BuildError) bool 
 	}
 	return false
 }
-func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool) (*BuildError, int) {
+func GetFirstError(errs []*BuildError, w *fsnotify.Watcher, closeOnNoError bool, editor string) (*BuildError, int) {
 	if len(errs) > 0 {
 		currentLocation := errs[0]
 		pos := 0
-		currentLocation.Open()
+		currentLocation.Open(editor)
 		err := w.Add(currentLocation.File)
 		if err != nil {
 			fmt.Println(currentLocation.File, err)
