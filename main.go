@@ -46,6 +46,7 @@ func main() {
 	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test|notes|analysis)")
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
 	editor := flag.String("editor", "code", "Editor to use")
+	printAndExit := flag.Bool("print", false, "Print the list of errors and exit")
 
 	flag.Parse()
 	if !*shouldLog {
@@ -61,6 +62,14 @@ func main() {
 	move := make(chan struct{}, 2)
 
 	errs := GetListOfErrors(*buildCmd, *containsFiles)
+
+	if *printAndExit {
+		for _, e := range errs {
+			fmt.Println(e.Location(), e.Error)
+		}
+		os.Exit(0)
+	}
+
 	currentLocation, pos := GetFirstError(errs, w, *closeOnNoError, *editor)
 
 	for currentLocation == nil {
