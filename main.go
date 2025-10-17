@@ -35,7 +35,7 @@ func (e BuildError) Open(editor string) {
 }
 
 func (e BuildError) Location() string {
-	return e.File + ":" + e.Line + ":" + e.Col
+	return fmt.Sprintf("%s:%s:%s", e.File, e.Line, e.Col)
 }
 
 func main() {
@@ -111,7 +111,8 @@ func main() {
 		}
 
 		log.Println(errs)
-		fmt.Printf("\t🔥\t%d\r", len(errs))
+		cnt := len(errs)
+		fmt.Printf("\t🔥\t%d\r", cnt)
 
 		if len(errs) > 0 && !currentErrorInErrors(currentLocation, errs) {
 			if *shouldLogOnErrorFix {
@@ -281,26 +282,10 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 			continue
 		}
 
-		if useFile(buildError.File) {
+		if useFile(buildError.File) && useError(buildError.Error) {
 			errs = append([]*BuildError{&buildError}, errs...)
 		}
 	}
-}
-
-func useFile(file string) bool {
-	fileNameContainsList := []string{
-		"vendor",
-		"_test.go",
-		"/snap/go/",
-		"../",
-		"/pkg/mod/",
-	}
-	for _, v := range fileNameContainsList {
-		if strings.Contains(file, v) {
-			return false
-		}
-	}
-	return true
 }
 
 // func shortCuts(errs []*BuildError, pos int) {
