@@ -25,6 +25,7 @@ type BuildError struct {
 
 func (e BuildError) Open(editor string) {
 	loc := e.File
+	println(e.Error)
 	_, err := os.Open(loc)
 	if os.IsNotExist(err) {
 		log.Printf("failed to open location as it was some how not a valid file: %s", loc)
@@ -42,7 +43,7 @@ func main() {
 	// useShortCuts := flag.Bool("h", false, "hotkey for next error")
 	shouldLog := flag.Bool("v", false, "Verbose log events")
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
-	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test|notes)")
+	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test|notes|analysis)")
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
 	editor := flag.String("editor", "code", "Editor to use")
 
@@ -226,16 +227,16 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 		out, err = exec.Command(`go`, "test", "-exec", "/bin/true", "./...").CombinedOutput()
 	case "build":
 		out, err = exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
+	case "analysis":
+		out, err = exec.Command("go", "build", "-gcflags=all=-m -l", "./...").CombinedOutput()
 	case "notes":
 		return errs
 	default:
 		flag.PrintDefaults()
 		os.Exit(23)
 	}
-	log.Println(string(out))
-	if err == nil {
-		return errs
-	}
+	_ = err
+
 	r := bufio.NewReader(bytes.NewReader(out))
 	for {
 		l, _, err := r.ReadLine()
@@ -249,27 +250,48 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 			panic(err)
 		}
 		vals := strings.SplitN(string(l), ":", 4)
+		var buildError BuildError
 		switch len(vals) {
 		case 3:
 			if strings.Contains(vals[0], "Error Trace") {
-				errs = append([]*BuildError{
-					{
-						File: strings.TrimSpace(vals[1]),
-						Line: strings.TrimSpace(vals[2]),
-					},
-				}, errs...)
+				buildError = BuildError{
+					File: strings.TrimSpace(vals[1]),
+					Line: strings.TrimSpace(vals[2]),
+				}
 			}
 		case 4:
-			errs = append([]*BuildError{
-				{
-					File:  vals[0],
-					Line:  vals[1],
-					Col:   vals[2],
-					Error: vals[3],
-				},
-			}, errs...)
+			buildError = BuildError{
+				File:  strings.TrimSpace(vals[0]),
+				Line:  vals[1],
+				Col:   vals[2],
+				Error: vals[3],
+			}
+
+		}
+		if buildError.File == "" {
+			continue
+		}
+
+		if useFile(buildError.File) {
+			errs = append([]*BuildError{&buildError}, errs...)
 		}
 	}
+}
+
+func useFile(file string) bool {
+	fileNameContainsList := []string{
+		"vendor",
+		"_test.go",
+		"/snap/go/",
+		"../",
+		"/pkg/mod/",
+	}
+	for _, v := range fileNameContainsList {
+		if strings.Contains(file, v) {
+			return false
+		}
+	}
+	return true
 }
 
 // func shortCuts(errs []*BuildError, pos int) {
