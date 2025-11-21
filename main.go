@@ -38,6 +38,8 @@ func (e BuildError) Location() string {
 	return fmt.Sprintf("%s:%s:%s", e.File, e.Line, e.Col)
 }
 
+var hadErrors bool
+
 func main() {
 	closeOnNoError := flag.Bool("e", false, "close when no errors")
 	// useShortCuts := flag.Bool("h", false, "hotkey for next error")
@@ -62,6 +64,11 @@ func main() {
 	move := make(chan struct{}, 2)
 
 	errs := GetListOfErrors(*buildCmd, *containsFiles)
+	if len(errs) == 0 {
+		if *closeOnNoError {
+			os.Exit(0)
+		}
+	}
 
 	if *printAndExit {
 		for _, e := range errs {
@@ -104,7 +111,11 @@ func main() {
 		errs = GetListOfErrors(*buildCmd, *containsFiles)
 		if len(errs) == 0 {
 			if *closeOnNoError {
-				return
+				if hadErrors {
+					os.Exit(1)
+				} else {
+					os.Exit(0)
+				}
 			}
 			fmt.Printf("\t✅\r")
 			continue
@@ -252,6 +263,7 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 		l, _, err := r.ReadLine()
 		if err == io.EOF {
 			if len(errs) > 0 {
+				hadErrors = true
 				log.Println(errs[0].Location())
 			}
 			return errs
