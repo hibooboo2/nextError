@@ -47,7 +47,7 @@ func main() {
 	shouldLogOnErrorFix := flag.Bool("logonfix", false, "Log on error fixed")
 	buildCmd := flag.String("cmd", "build", "Cmd to use for next error choices are (build|test|run-test|notes|analysis)")
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
-	editor := flag.String("editor", "code", "Editor to use")
+	editor := flag.String("editor", "windsurf", "Editor to use")
 	printAndExit := flag.Bool("print", false, "Print the list of errors and exit")
 
 	flag.Parse()
@@ -250,6 +250,8 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 		out, err = exec.Command(`go`, "build", "-o", "/tmp/nexterrorBinTest").CombinedOutput()
 	case "analysis":
 		out, err = exec.Command("go", "build", "-gcflags=all=-m -l", "./...").CombinedOutput()
+	case "vet":
+		out, err = exec.Command("syncvet", "./...").CombinedOutput()
 	case "notes":
 		return errs
 	default:
