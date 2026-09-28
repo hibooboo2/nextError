@@ -15,13 +15,15 @@ func useError(err string) bool {
 	return true
 }
 
-func useFile(file string) bool {
+func useFile(file string, includeTests bool) bool {
 	fileNameContainsList := []string{
 		"vendor",
-		"_test.go",
 		"/snap/go/",
 		"../",
 		"/pkg/mod/",
+	}
+	if !includeTests {
+		fileNameContainsList = append(fileNameContainsList, "_test.go")
 	}
 	for _, v := range fileNameContainsList {
 		if strings.Contains(file, v) {

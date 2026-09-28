@@ -49,6 +49,7 @@ func main() {
 	containsFiles := flag.String("contains", "// XXX", "use this to change what value is looked to be in a line, if it is in the line it is counted as an error")
 	editor := flag.String("editor", "windsurf", "Editor to use")
 	printAndExit := flag.Bool("print", false, "Print the list of errors and exit")
+	includeTestFiles := flag.Bool("testfiles", false, "Include errors from _test.go files")
 
 	flag.Parse()
 	if !*shouldLog {
@@ -63,7 +64,7 @@ func main() {
 
 	move := make(chan struct{}, 2)
 
-	errs := GetListOfErrors(*buildCmd, *containsFiles)
+	errs := GetListOfErrors(*buildCmd, *containsFiles, *includeTestFiles)
 	if len(errs) == 0 {
 		if *closeOnNoError {
 			os.Exit(0)
@@ -82,7 +83,7 @@ func main() {
 	for currentLocation == nil {
 		fmt.Printf("\t✅\r")
 		time.Sleep(time.Second * 3)
-		errs = GetListOfErrors(*buildCmd, *containsFiles)
+		errs = GetListOfErrors(*buildCmd, *containsFiles, *includeTestFiles)
 		currentLocation, pos = GetFirstError(errs, w, *closeOnNoError, *editor)
 	}
 
@@ -108,7 +109,7 @@ func main() {
 			log.Println("Tick")
 		}
 
-		errs = GetListOfErrors(*buildCmd, *containsFiles)
+		errs = GetListOfErrors(*buildCmd, *containsFiles, *includeTestFiles)
 		if len(errs) == 0 {
 			if *closeOnNoError {
 				if hadErrors {
@@ -236,7 +237,7 @@ func findLinesContaining(directory string, prefix string, extensions []string) (
 	return result, nil
 }
 
-func GetListOfErrors(buildCmd string, contains string) []*BuildError {
+func GetListOfErrors(buildCmd string, contains string, includeTestFiles bool) []*BuildError {
 	var out []byte
 	var err error
 	errs := GetXXXErrors(contains)
@@ -296,7 +297,7 @@ func GetListOfErrors(buildCmd string, contains string) []*BuildError {
 			continue
 		}
 
-		if useFile(buildError.File) && useError(buildError.Error) {
+		if useFile(buildError.File, includeTestFiles) && useError(buildError.Error) {
 			errs = append([]*BuildError{&buildError}, errs...)
 		}
 	}
